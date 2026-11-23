@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOLMAR — an open-world crime game</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #10131a; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #wrap { position: relative; width: 1280px; height: 720px; margin: 0 auto; }
+  canvas#game { display: block; width: 1280px; height: 720px; background: #f7e8c8; }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; }
+  /* ---------- HUD ---------- */
+  #hud { display: none; position: absolute; inset: 0; pointer-events: none; color: #fff; }
+  #hud-top { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .hud-box { background: rgba(10, 14, 24, 0.62); border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  #hud-stars { font-size: 26px; letter-spacing: 3px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #hud-wanted { font-size: 12px; color: #ffd60a; text-transform: uppercase; letter-spacing: 1px; }
+  #hud-cash { font-size: 24px; font-weight: 800; color: #7dff9b; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #hud-health-bar-wrap { width: 170px; height: 10px; background: rgba(255,255,255,.25); border-radius: 5px; overflow: hidden; margin-top: 4px; }
+  #hud-health-bar { height: 100%; width: 100%; background: #22c55e; }
+  #hud-health { font-size: 13px; }
+  #hud-mission { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 560px; }
+  #hud-mission-text { font-size: 13px; opacity: .92; }
+  #hud-speed { position: absolute; bottom: 16px; right: 18px; font-size: 30px; font-weight: 800; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+  #hud-clock { position: absolute; bottom: 16px; left: 18px; font-size: 18px; font-weight: 700; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #hud-ammo { position: absolute; bottom: 52px; left: 18px; font-size: 14px; opacity: .9; }
+  #hud-toast { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); max-width: 760px; background: rgba(10,14,24,.78); border-radius: 10px; padding: 10px 16px; font-size: 15px; line-height: 1.45; transition: opacity .4s; }
+  #minimap { position: absolute; right: 14px; bottom: 64px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,.65); border-radius: 8px; background: #20242e; }
+  /* ---------- Menu / pause / end ---------- */
+  #menu { background: linear-gradient(180deg, rgba(16,20,34,.55), rgba(16,20,34,.88)); }
+  #menu h1 { font-size: 92px; font-weight: 900; letter-spacing: 6px; color: #ffd60a; text-shadow: 0 4px 0 #e63946, 0 10px 30px rgba(0,0,0,.8); }
+  #menu h2 { font-size: 22px; font-weight: 600; color: #7fd0e8; letter-spacing: 3px; margin-top: 2px; }
+  #menu p.sub { margin-top: 14px; font-size: 15px; opacity: .9; max-width: 620px; line-height: 1.5; }
+  .btn-row { margin-top: 26px; display: flex; gap: 12px; }
+  button { pointer-events: auto; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700; color: #10131a; background: #ffd60a; border: none; border-radius: 10px; padding: 12px 22px; }
+  button:hover { background: #ffe14d; }
+  button.ghost { background: rgba(255,255,255,.16); color: #fff; }
+  button.ghost:hover { background: rgba(255,255,255,.28); }
+  #save-info { margin-top: 14px; font-size: 13px; opacity: .8; }
+  .controls { margin-top: 22px; font-size: 13px; line-height: 1.9; opacity: .85; }
+  .controls b { color: #ffd60a; }
+  #pause, #end { display: none; background: rgba(10, 14, 24, 0.72); }
+  #pause h1, #end h1 { font-size: 54px; font-weight: 900; letter-spacing: 4px; }
+  #end-title { color: #ef4444; }
+  #end-text, #pause p { margin-top: 10px; font-size: 16px; opacity: .92; max-width: 520px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div id="hud">
+    <div id="hud-top">
+      <div class="hud-box">
+        <div id="hud-stars">☆☆☆☆☆</div>
+        <div id="hud-wanted"></div>
+        <div style="margin-top:6px;font-size:13px">Health <span id="hud-health">100</span></div>
+        <div id="hud-health-bar-wrap"><div id="hud-health-bar"></div></div>
+      </div>
+      <div class="hud-box" id="hud-mission"><div id="hud-mission-text" style="font-size:15px;font-weight:700"></div></div>
+      <div class="hud-box" style="text-align:right">
+        <div id="hud-cash">$120</div>
+        <div style="font-size:12px;opacity:.8">SOLMAR</div>
+      </div>
+    </div>
+    <div id="hud-toast" style="opacity:0"></div>
+    <div id="hud-clock">09:15</div>
+    <div id="hud-ammo"></div>
+    <div id="hud-speed"></div>
+    <canvas id="minimap" width="190" height="190"></canvas>
+  </div>
+
+  <div id="menu" class="overlay">
+    <h1>SOLMAR</h1>
+    <h2>AN OPEN-WORLD CRIME GAME</h2>
+    <p class="sub">Sun, sea and bad decisions. Explore Solmar on foot and by car, steal
+    what you need, outrun the PD, and work off your debt to the fixer Cassie Vane —
+    five story jobs, then the whole city is yours.</p>
+    <div class="btn-row">
+      <button id="btn-new">New Game</button>
+      <button id="btn-continue" class="ghost" style="display:none">Continue</button>
+      <button id="btn-sound" class="ghost">Sound: ON</button>
+    </div>
+    <div id="save-info"></div>
+    <div class="controls">
+      <b>WASD / Arrows</b> move &amp; drive &nbsp;·&nbsp; <b>Shift</b> run &nbsp;·&nbsp; <b>E</b> enter / steal car &nbsp;·&nbsp; <b>Space</b> punch<br>
+      <b>Click</b> shoot &nbsp;·&nbsp; <b>R</b> buy ammo ($30) &nbsp;·&nbsp; <b>T</b> fare run &nbsp;·&nbsp; <b>H</b> horn &nbsp;·&nbsp; <b>M</b> mute &nbsp;·&nbsp; <b>Esc</b> pause
+    </div>
+  </div>
+
+  <div id="pause" class="overlay">
+    <h1>PAUSED</h1>
+    <p>Solmar waits for no one. Well — right now it does.</p>
+    <div class="btn-row">
+      <button id="btn-resume">Resume</button>
+      <button id="btn-quit-menu" class="ghost">Quit to Menu</button>
+    </div>
+  </div>
+
+  <div id="end" class="overlay">
+    <h1 id="end-title">BUSTED</h1>
+    <p id="end-text"></p>
+    <div class="btn-row">
+      <button id="btn-restart">Start Over</button>
+    </div>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
